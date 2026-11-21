@@ -1,0 +1,20 @@
+# 클러스터 접속 정보 — 절대 커밋 금지
+kubeconfig*
+*.kubeconfig
+.kube/
+
+# 인증서 / 키
+*.pem
+*.key
+*.crt
+*.p12
+id_rsa*
+
+# 환경변수 / 비밀값
+.env
+.env.*
+*secret*.yaml
+*secret*.yml
+
+# 로컬 개인 설정
+.claude/settings.local.json

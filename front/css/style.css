@@ -356,6 +356,75 @@ dialog.confirm:has(table.diff), dialog.confirm:has(.apply-plan) { width: min(680
   .mf-side { position: static; max-height: 40vh; }
 }
 
+/* ---------------------------------------------------------------- 댓글 기능 (Work 4) */
+.cm-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 16px; margin-bottom: 16px;
+}
+.cm-input {
+  width: 100%; resize: vertical; min-height: 84px; font: inherit; font-size: 15px; line-height: 1.6;
+  padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text);
+}
+.cm-input:focus { outline: none; border-color: var(--accent); }
+.cm-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
+.cm-examples { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; flex: 1; min-width: 0; }
+.chip-btn {
+  font: inherit; font-size: 12.5px; padding: 3px 10px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
+}
+.chip-btn:hover { border-color: var(--accent); color: var(--accent); }
+.cm-submit { display: flex; align-items: center; gap: 10px; }
+.cm-submit .over { color: var(--bad); font-weight: 600; }
+.cm-empty { padding: 12px 4px; }
+
+.cm-result { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 18px; align-items: stretch; }
+.cm-verdict { border-radius: 10px; padding: 16px 12px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 4px; text-align: center; }
+.cm-verdict.is-normal { background: var(--ok-soft); color: var(--ok); }
+.cm-verdict.is-flagged { background: var(--bad-soft); color: var(--bad); }
+.cm-verdict-label { font-size: 26px; font-weight: 700; }
+.cm-verdict-sub { font-size: 12px; }
+.cm-detail { min-width: 0; }
+.cm-text { font-size: 15px; margin: 0 0 12px; word-break: break-word; }
+.cm-prob-head { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.cm-bar { position: relative; height: 12px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); overflow: visible; }
+.cm-bar-fill { height: 100%; border-radius: 999px; transition: width .3s ease; }
+.cm-bar-fill.is-normal { background: var(--ok); }
+.cm-bar-fill.is-flagged { background: var(--bad); }
+.cm-bar-th { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--text); border-radius: 1px; }
+.cm-uncertain { margin: 10px 0 0; padding: 8px 10px; border-radius: 8px; background: var(--warn-soft); color: var(--warn); font-size: 13px; }
+.cm-detail .muted.small { margin: 10px 0 0; }
+
+.cm-history-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.cm-history-head h2 { font-size: 15px; }
+.cm-history { list-style: none; margin: 0; padding: 0; }
+.cm-history-item {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 6px; font: inherit; color: var(--text);
+  background: transparent; border: 0; border-top: 1px solid var(--border); cursor: pointer; text-align: left;
+}
+.cm-history li:first-child .cm-history-item { border-top: 0; }
+.cm-history-item:hover { background: var(--surface-2); }
+.cm-history-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cm-history-p { width: 44px; text-align: right; }
+
+@media (max-width: 640px) {
+  .cm-result { grid-template-columns: 1fr; }
+}
+
+/* ---------------------------------------------------------------- 피드백 (Work 5) */
+.cm-feedback {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--border);
+}
+.cm-feedback.is-done { background: var(--accent-soft); border-color: transparent; }
+.cm-feedback.is-off { background: var(--warn-soft); color: var(--warn); border-color: transparent; font-size: 13px; }
+button.card { font: inherit; text-align: left; cursor: pointer; }
+.fb-table td { vertical-align: middle; }
+.fb-table tbody tr { cursor: default; }
+.fb-text { min-width: 200px; }
+.fb-label-btns { display: inline-flex; gap: 4px; }
+.fb-ok { color: var(--ok); font-weight: 600; }
+.fb-wrong { color: var(--bad); font-weight: 600; }
+
 /* ---------------------------------------------------------------- 자리표시 화면 */
 .placeholder {
   background: var(--surface); border: 1px dashed var(--border); border-radius: var(--radius);

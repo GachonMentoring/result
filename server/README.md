@@ -1,8 +1,10 @@
-# K8s Resource API (Work 1 · 2 · 3)
+# K8s Resource API (Work 1 · 2 · 3 · 4 · 5)
 
 `mentor` 네임스페이스의 리소스 상태를 Watch 루프 + 메모리 캐시로 유지하고 GET API로 제공하는 FastAPI 서버.
 Work 2: 삭제 / 롤아웃 재시작 / 이벤트(10개 단위 페이지) / 파드 로그.
 Work 3: 매니페스트(YAML) 수정·저장·삭제·apply + 선언 ↔ 실제 판정.
+Work 4: 댓글 분류 서비스 (가이드 app.py 의 서비스 로직) — 모델 서버(`model/`)를 HTTP 로 호출.
+Work 5: 피드백 — 분류 결과를 MariaDB(`toxicity.comment_feedback`)에 저장, 표 조회, 사람 정답 입력.
 
 ## 실행 (로컬, kubeconfig 사용)
 
@@ -25,6 +27,12 @@ Swagger: http://localhost:8000/docs
 |---|---|---|
 | `WATCH_NAMESPACE` | (파드 안이면 자기 네임스페이스) | 조회할 네임스페이스 |
 | `WATCH_TIMEOUT_SECONDS` | 300 | watch 스트림 1회 최대 유지 시간 |
+| `MODEL_URL` | `http://localhost:8088` | 모델 서버 주소 (클러스터: `http://toxicity-filter.mentor:8088`) |
+| `THRESHOLD` | 0.5 | 유해 판정 임계값 (확률 ≥ 임계값 → 주의) |
+| `MODEL_TIMEOUT` | 3 | 모델 호출 제한 시간(초) |
+| `DB_HOST` / `DB_PORT` | `192.168.2.30` / `31306` | 피드백 DB (mariadb-0 쓰기. 31307 읽기 복제본은 쓰지 않음) |
+| `DB_NAME` / `DB_USER` | `toxicity` / `mentor_app` | |
+| `DB_PASSWORD` | (없음) | **필수** — 없으면 피드백 저장·조회 꺼짐 (분류는 동작) |
 | `MANIFEST_DIR` | `server/dev-manifests` | 매니페스트 폴더 (운영: NFS 마운트 경로) |
 | `LOG_LEVEL` | INFO | `DEBUG`로 두면 이벤트 하나하나 로그 |
 
@@ -44,6 +52,26 @@ Swagger: http://localhost:8000/docs
 | POST | `/api/v1/resources/{kind}/{name}/restart?confirm=true` | 롤아웃 재시작 (Deployment/StatefulSet) → 202 |
 
 목록·이벤트 API는 `limit`/`offset` 으로 페이지 단위 조회 가능 (`count`는 전체 개수).
+
+### 댓글 기능 (Work 4)
+
+| Method | Path | 설명 |
+|---|---|---|
+| POST | `/api/v1/comments/predict` | `{text}` (1~300자) → `{label, label_name, toxic_proba, threshold, uncertain, model, latency_ms}` |
+| GET | `/api/v1/comments/model` | 모델 서버 연결 여부 + 모델 정보(`/info`) |
+
+- 모델 연결 실패·시간 초과 503, 모델 서버 오류 502. 플랫폼 readiness 에는 영향 없음
+- 판정(임계값)은 이 서버가 한다 — 모델은 확률만 준다
+
+### 피드백 (Work 5)
+
+| Method | Path | 설명 |
+|---|---|---|
+| GET | `/api/v1/feedback?filter=all&limit=10&offset=0` | 표 조회. filter: `all` / `unlabeled` / `labeled` / `wrong`. 응답에 `summary`(건수 요약) |
+| POST | `/api/v1/feedback/{id}/label` | `{"true_label": 0\|1}` 사람 정답 (한 번만 — 이미 있으면 409) |
+
+- `POST /api/v1/comments/predict` 가 분류 후 자동 저장 → 응답에 `id`, `saved`, `save_error`. DB 장애여도 분류 결과는 반환
+- 스키마: `db/schema.sql`
 
 ### 매니페스트 관리 (Work 3)
 
@@ -97,6 +125,10 @@ app/
    ├─ watcher.py    List → Watch 루프, 410 re-list, 백오프
    ├─ summarize.py  원본 → 요약 (terminating, owner 포함)
    └─ actions.py    삭제 / 재시작 / 로그, 조작 전 영향(effect) 판단, k8s 오류 매핑
+├─ comments/
+│  └─ service.py    댓글 분류: 검증 · 모델 호출(httpx) · 판정
+├─ feedback/
+│  └─ repo.py       피드백 DB (PyMySQL): 저장 · 정답 · 조회
 └─ manifests/
    ├─ files.py      매니페스트 폴더 읽기/저장(etag 충돌, 원자적 쓰기, 경로 안전장치)
    └─ cluster.py    판정(dry-run diff) / apply(SSA) / 삭제 / 선언 없음
