@@ -12,11 +12,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from .api.manifests import router as manifests_router
 from .api.routes import router
-from .config import load_settings
+from .config import load_settings, resolve_manifest_dir
 from .k8s.client import load_kube_config
 from .k8s.registry import build_registry
 from .k8s.watcher import WatchManager
+from .manifests.cluster import DynamicClusterAPI, ManifestService
+from .manifests.files import ManifestStore
 
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO"),
@@ -39,12 +42,21 @@ def default_manager() -> WatchManager:
     return WatchManager(build_registry(), settings.namespace, settings.watch_timeout_seconds)
 
 
-def create_app(manager_factory: Callable[[], WatchManager] = default_manager) -> FastAPI:
+def default_manifests(manager: WatchManager) -> ManifestService:
+    """매니페스트 폴더(MANIFEST_DIR, 기본 server/dev-manifests) + 같은 네임스페이스."""
+    return ManifestService(ManifestStore(resolve_manifest_dir()), DynamicClusterAPI(), manager.namespace)
+
+
+def create_app(
+    manager_factory: Callable[[], WatchManager] = default_manager,
+    manifests_factory: Callable[[WatchManager], ManifestService | None] = default_manifests,
+) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         manager = manager_factory()
         manager.start()
         app.state.manager = manager
+        app.state.manifests = manifests_factory(manager)
         try:
             yield
         finally:
@@ -54,10 +66,11 @@ def create_app(manager_factory: Callable[[], WatchManager] = default_manager) ->
     app.add_middleware(
         CORSMiddleware,
         allow_origins=cors_origins(),
-        allow_methods=["GET", "POST", "DELETE"],   # 조회 + 삭제/재시작
+        allow_methods=["GET", "POST", "PUT", "DELETE"],   # 조회 + 삭제/재시작 + 매니페스트 저장
         allow_headers=["*"],
     )
     app.include_router(router)
+    app.include_router(manifests_router)
 
     @app.get("/healthz")
     def healthz():

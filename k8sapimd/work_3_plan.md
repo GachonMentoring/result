@@ -144,3 +144,31 @@ getsebool nfs_export_all_rw                # Rocky(SELinux): on 이어야 홈 �
 
 - apply(SSA) = `patch`, 새 리소스 = `create`, 판정 = `get` → 매니페스트로 다루는 kind 마다 `get, list, create, patch, delete`
 - 허용할 kind 목록을 Role에 명시 (예: Deployment, Service, ConfigMap, Secret, Job, PVC, StatefulSet, Ingress)
+
+---
+
+## 7. 구현 결과
+
+### 사전 검증 (실제 클러스터)
+- NFS export 추가 (`/home/suhan/manifests 192.168.2.0/24(rw,sync,no_subtree_check,root_squash)`), suhan uid/gid = 1000/1000
+- 테스트 파드(PV/PVC, `actimeo=1`, runAsUser 1000): **마운트 ✅ (nfs v4.2), 쓰기 ✅ (소유자 1000:1000), SELinux 차단 없음** → 검증 후 삭제
+- 외부 수정 반영 지연 측정은 **미실시** (파드 배포 Work에서 측정)
+
+### 결정 (구현 중 확정)
+- 소유권 충돌: 적용 확인창에 충돌 필드 표시 → [강제 적용]을 눌러야 force
+- 파일에서 리소스를 지우고 apply 해도 자동 삭제(prune) 안 함 → '선언 없음' 목록에서 삭제
+- 편집기: 외부 라이브러리 없이 textarea + 줄 번호 (Tab 2칸, Enter 들여쓰기 유지, Ctrl+S, 오류 줄 강조)
+- 개발 폴더: `server/dev-manifests` (MANIFEST_DIR 미지정 시, git 제외)
+
+### 완료 기준
+- [x] 파일 목록: 하위 폴더, .yaml/.yml, 숨김 제외, 3초마다 다시 읽어 외부 추가·수정·삭제 반영
+- [x] 경로 안전장치: `..`, 절대경로, 드라이브, 숨김, 정리되는 경로(a//b), 확장자 → 400
+- [x] 저장: YAML 문법·필수 필드 검증(오류 줄 표시), etag 충돌 409 → [다시 불러오기 / 강제 덮어쓰기], 임시 파일 후 교체
+- [x] 적용은 저장된 파일 기준 (저장 안 한 변경 있으면 [적용] 비활성)
+- [x] 판정: 일치 / 불일치(diff) / 미적용 / 오류 / 빈 파일, 기본값 차이·restartedAt 무시, 5초마다 갱신
+- [x] apply: Server-Side Apply(`mentor-platform`), 전체 dry-run 통과 시에만 적용, mentor 외 네임스페이스·클러스터 범위 거부
+- [x] 삭제: 파일 + 클러스터 리소스(기본) / 파일만 → '선언 없음' 표시 → 삭제
+- [x] 실제 클러스터 시연: apply → `kubectl scale` → 불일치·충돌 표시 → 강제 적용으로 복구 → 일치
+- [x] 테스트 56개 통과 (기존 28 + 매니페스트 28, `tests/test_manifests.py`)
+- [ ] 저장 안 한 변경이 있을 때 다른 화면 이동 확인창 — 구현했으나 브라우저 확인 안 함
+- [ ] NFS 외부 수정 반영 지연 측정 — 파드 배포 Work로 이월

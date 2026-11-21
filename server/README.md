@@ -1,7 +1,8 @@
-# K8s Resource API (Work 1 · Work 2)
+# K8s Resource API (Work 1 · 2 · 3)
 
 `mentor` 네임스페이스의 리소스 상태를 Watch 루프 + 메모리 캐시로 유지하고 GET API로 제공하는 FastAPI 서버.
 Work 2: 삭제 / 롤아웃 재시작 / 이벤트(10개 단위 페이지) / 파드 로그.
+Work 3: 매니페스트(YAML) 수정·저장·삭제·apply + 선언 ↔ 실제 판정.
 
 ## 실행 (로컬, kubeconfig 사용)
 
@@ -24,6 +25,7 @@ Swagger: http://localhost:8000/docs
 |---|---|---|
 | `WATCH_NAMESPACE` | (파드 안이면 자기 네임스페이스) | 조회할 네임스페이스 |
 | `WATCH_TIMEOUT_SECONDS` | 300 | watch 스트림 1회 최대 유지 시간 |
+| `MANIFEST_DIR` | `server/dev-manifests` | 매니페스트 폴더 (운영: NFS 마운트 경로) |
 | `LOG_LEVEL` | INFO | `DEBUG`로 두면 이벤트 하나하나 로그 |
 
 ## API
@@ -42,6 +44,24 @@ Swagger: http://localhost:8000/docs
 | POST | `/api/v1/resources/{kind}/{name}/restart?confirm=true` | 롤아웃 재시작 (Deployment/StatefulSet) → 202 |
 
 목록·이벤트 API는 `limit`/`offset` 으로 페이지 단위 조회 가능 (`count`는 전체 개수).
+
+### 매니페스트 관리 (Work 3)
+
+| Method | Path | 설명 |
+|---|---|---|
+| GET | `/api/v1/manifests` | 파일 목록 (하위 폴더, .yaml/.yml, etag) |
+| GET | `/api/v1/manifests/file?path=` | 내용 + etag |
+| PUT | `/api/v1/manifests/file?path=&force=` | 저장 `{content, etag}`. etag 다르면 409 (외부에서 바뀜), YAML 오류 400(+line) |
+| POST | `/api/v1/manifests/file?path=` | 새 파일 `{content}` (있으면 409) |
+| DELETE | `/api/v1/manifests/file?path=&confirm=true&with_resources=true` | 파일 (+ 선언한 클러스터 리소스) 삭제 |
+| GET | `/api/v1/manifests/status?path=` | 판정 + 리소스별 diff·소유권 충돌 |
+| GET | `/api/v1/manifests/status-all` | 전체 판정 요약 + 선언 없음 목록 |
+| POST | `/api/v1/manifests/apply?path=&confirm=true&force=` | **저장된 파일**을 Server-Side Apply. 충돌 시 409(+conflicts) |
+| DELETE | `/api/v1/manifests/orphans?api_version=&kind=&name=&confirm=true` | 선언 없는 리소스 삭제 |
+
+- 판정: 파일을 dry-run apply 한 결과 vs 현재 클러스터 → `synced`(일치) / `drift`(불일치) / `missing`(미적용) / `error` / `empty`
+- 필드 관리자 `mentor-platform`. mentor 네임스페이스 리소스만 허용 (클러스터 범위·다른 네임스페이스 거부)
+- 선언 없음: `mentor-platform`이 apply 했지만 어떤 파일에도 없는 리소스
 
 ### 이벤트 저장 위치
 
@@ -77,6 +97,9 @@ app/
    ├─ watcher.py    List → Watch 루프, 410 re-list, 백오프
    ├─ summarize.py  원본 → 요약 (terminating, owner 포함)
    └─ actions.py    삭제 / 재시작 / 로그, 조작 전 영향(effect) 판단, k8s 오류 매핑
+└─ manifests/
+   ├─ files.py      매니페스트 폴더 읽기/저장(etag 충돌, 원자적 쓰기, 경로 안전장치)
+   └─ cluster.py    판정(dry-run diff) / apply(SSA) / 삭제 / 선언 없음
 ```
 
 ## 테스트
@@ -86,6 +109,12 @@ app/
 ```
 
 클러스터 없이 가짜 list/watch로 410 처리(예외/ERROR 이벤트 둘 다), re-list 시 캐시 교체, 일반 에러 재시도, 스트림 timeout 후 재watch를 검증합니다.
+
+## 파드 배포 시 필요한 것 (Work 3 추가)
+
+- 매니페스트 폴더: NFS PV/PVC (`192.168.2.40:/home/suhan/manifests`, `mountOptions: [actimeo=1]`) → `MANIFEST_DIR=/manifests`
+- 파드 `securityContext.runAsUser/runAsGroup: 1000` (NFS root_squash, 파일 소유자 suhan)
+- 매니페스트로 다룰 kind 마다 Role에 `get, list, create, patch, delete` (SSA = patch)
 
 ## 파드 배포 시 필요한 권한 (이후 Work)
 

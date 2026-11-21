@@ -22,32 +22,60 @@ function ensureDialog() {
   dialog.className = "confirm";
   document.body.appendChild(dialog);
   // 바깥(backdrop) 클릭 = 아니오
-  dialog.addEventListener("click", (e) => { if (e.target === dialog) dialog.close("no"); });
+  dialog.addEventListener("click", (e) => { if (e.target === dialog) dialog.close(); });
   return dialog;
+}
+
+/**
+ * 범용 대화상자. 누른 버튼의 value 와 폼 입력값(체크박스·텍스트)을 돌려준다.
+ * Esc·바깥 클릭은 cancelValue(기본 "no").
+ * enterValue: 입력칸에서 Enter 를 누르면 이 버튼으로 처리 (지정 안 하면 Enter 무시)
+ * @param {{title, target?, body?, buttons:{value,label,cls?,autofocus?}[], cancelValue?, enterValue?}} opts
+ * @returns {Promise<{value:string, data:Object}>}
+ */
+export function openDialog({ title, target, body = "", buttons, cancelValue = "no", enterValue }) {
+  const d = ensureDialog();
+  render(d, html`
+    <form method="dialog">
+      <h2>${title}</h2>
+      ${target ? html`<p class="confirm-target mono">${target}</p>` : ""}
+      ${body}
+      <div class="confirm-actions">
+        ${buttons.map((b) => html`<button class="${b.cls ?? "btn"}" value="${b.value}" ${b.autofocus ? "autofocus" : ""}>${b.label}</button>`)}
+      </div>
+    </form>`);
+  const form = d.querySelector("form");
+  form.querySelectorAll("input[type=text]").forEach((i) => i.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    if (enterValue) d.close(enterValue);
+  }));
+  d.returnValue = cancelValue;
+  d.showModal();
+  return new Promise((resolve) => {
+    d.addEventListener("close", () => {
+      const data = {};
+      form.querySelectorAll("input[name]").forEach((i) => { data[i.name] = i.type === "checkbox" ? i.checked : i.value; });
+      resolve({ value: d.returnValue || cancelValue, data });
+    }, { once: true });
+  });
 }
 
 /**
  * @param {{title:string, target:string, plan:{effect,message,details}, yesLabel:string}} opts
  * @returns {Promise<boolean>}
  */
-export function confirmAction({ title, target, plan, yesLabel }) {
-  const d = ensureDialog();
-  render(d, html`
-    <form method="dialog">
-      <h2>${title}</h2>
-      <p class="confirm-target mono">${target}</p>
+export async function confirmAction({ title, target, plan, yesLabel }) {
+  const { value } = await openDialog({
+    title, target,
+    body: html`
       <div class="confirm-effect">${effectBadge(plan.effect)}</div>
       <p>${plan.message}</p>
-      ${plan.details?.length ? html`<ul>${plan.details.map((t) => html`<li>${t}</li>`)}</ul>` : ""}
-      <div class="confirm-actions">
-        <button class="btn" value="no" autofocus>아니오</button>
-        <button class="btn btn-danger" value="yes">${yesLabel}</button>
-      </div>
-    </form>`);
-  d.returnValue = "no";
-  d.showModal();
-  return new Promise((resolve) => {
-    // Esc 는 cancel → close 로 이어지며 returnValue 는 "no" 그대로
-    d.addEventListener("close", () => resolve(d.returnValue === "yes"), { once: true });
+      ${plan.details?.length ? html`<ul>${plan.details.map((t) => html`<li>${t}</li>`)}</ul>` : ""}`,
+    buttons: [
+      { value: "no", label: "아니오", autofocus: true },
+      { value: "yes", label: yesLabel, cls: "btn btn-danger" },
+    ],
   });
+  return value === "yes";
 }

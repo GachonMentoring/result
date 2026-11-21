@@ -1,7 +1,7 @@
 # Front (Front 1)
 
 빌드 도구 없는 HTML + Vanilla JS(ES Module) 프론트엔드.
-좌측 메뉴: 댓글 기능 / 피드백 / **인프라 관리** (현재 구현은 인프라 관리만, 나머지는 자리표시).
+좌측 메뉴: 댓글 기능 / 피드백 / **인프라 관리** / **매니페스트 관리** (댓글·피드백은 자리표시).
 
 ## 실행
 
@@ -39,6 +39,16 @@ cd front; python -m http.server 5500
 - **상세 탭**: 개요 / 이벤트(타임라인, Warning 강조) / 로그(Pod, 최근 200줄 자동 갱신, 컨테이너 선택, 이전 컨테이너)
 - URL: `#/infra/pods`, `#/infra/services` … (새로고침해도 탭 유지)
 
+## 매니페스트 관리 화면 (Work 3)
+
+- 두 번째 메뉴: 파일 트리(폴더 접기, 판정 점 색상) + **선언 없음** 목록(삭제 가능), [+ 새 파일]
+- 편집기: 줄 번호, Tab=공백 2칸, Enter=들여쓰기 유지, **Ctrl+S 저장**, YAML 오류 줄 빨간 표시
+- [저장] → [적용]: 적용은 **저장된 파일** 기준 (저장 안 하면 비활성). 적용 전 확인창에 생성/변경/변경 없음 + diff + 소유권 충돌
+- 판정 패널: 리소스별 일치/불일치/미적용/오류 + 필드 diff (파일 ↔ 클러스터), 5초마다 갱신
+- 편집 중 외부(NFS)에서 파일이 바뀌면 경고 → 저장 시 [다시 불러오기 / 강제 덮어쓰기]. 편집 중이 아니면 자동으로 다시 불러옴
+- 삭제: 기본 "클러스터 리소스도 함께 삭제" (끄면 파일만 → 선언 없음)
+- URL: `#/manifests/폴더/파일.yaml`. 저장 안 한 변경이 있으면 이동 전에 확인
+
 ## 구조
 
 ```
@@ -51,7 +61,8 @@ front/
 │  ├─ api.js           fetch 래퍼 (시간 초과, 오류 구분)
 │  ├─ poller.js        주기 실행 (겹침 방지, 탭 숨김 시 정지)
 │  ├─ util.js          html`` 템플릿(자동 이스케이프), age 표기
-│  ├─ pages/           infra / comments / feedback
+│  ├─ pages/           infra / manifests / comments / feedback
+│  ├─ manifests/       editor(줄 번호 편집기), judge(판정·diff 표시)
 │  ├─ toast.js         조작 결과 알림
 │  └─ infra/           columns(컬럼), status(배지 판정), detail(상세 패널·조작·탭), confirm(예/아니오 모달), pager(◀ ▶ 페이지)
 └─ vendor/js-yaml.js   js-yaml 4.1.0 (MIT, ESM 빌드) — 오프라인 동작용

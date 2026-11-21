@@ -4,6 +4,9 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+# 개발용 기본 매니페스트 폴더 (운영에서는 MANIFEST_DIR=NFS 마운트 경로)
+DEV_MANIFEST_DIR = Path(__file__).resolve().parents[1] / "dev-manifests"
+
 # 파드 안에서 실행될 때 ServiceAccount 토큰과 함께 마운트되는 자기 네임스페이스 파일
 SA_NAMESPACE_FILE = Path("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
 
@@ -12,6 +15,7 @@ SA_NAMESPACE_FILE = Path("/var/run/secrets/kubernetes.io/serviceaccount/namespac
 class Settings:
     namespace: str
     watch_timeout_seconds: int
+    manifest_dir: Path
 
 
 def resolve_namespace() -> str:
@@ -26,8 +30,18 @@ def resolve_namespace() -> str:
     )
 
 
+def resolve_manifest_dir() -> Path:
+    """MANIFEST_DIR → (미지정이면) 개발용 server/dev-manifests (없으면 만든다)."""
+    raw = os.getenv("MANIFEST_DIR", "").strip()
+    if raw:
+        return Path(raw)
+    DEV_MANIFEST_DIR.mkdir(exist_ok=True)
+    return DEV_MANIFEST_DIR
+
+
 def load_settings() -> Settings:
     return Settings(
         namespace=resolve_namespace(),
         watch_timeout_seconds=int(os.getenv("WATCH_TIMEOUT_SECONDS", "300")),
+        manifest_dir=resolve_manifest_dir(),
     )

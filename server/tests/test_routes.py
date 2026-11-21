@@ -135,9 +135,13 @@ def test_cors_allows_front_origin_only():
         bad = c.options("/api/v1/resources/pods/x", headers={
             "Origin": "http://evil.example", "Access-Control-Request-Method": "DELETE"})
         assert bad.status_code == 400
-        put = c.options("/api/v1/resources/pods/x", headers={
+        # 매니페스트 저장(PUT)은 허용, 그 외 쓰기 메서드(PATCH)는 거부
+        put = c.options("/api/v1/manifests/file", headers={
             "Origin": "http://localhost:5500", "Access-Control-Request-Method": "PUT"})
-        assert put.status_code == 400
+        assert put.status_code == 200
+        patch = c.options("/api/v1/resources/pods/x", headers={
+            "Origin": "http://localhost:5500", "Access-Control-Request-Method": "PATCH"})
+        assert patch.status_code == 400
 
 
 def test_label_selector_parser():
