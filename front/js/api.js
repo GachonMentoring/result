@@ -85,3 +85,18 @@ export const mf = {
     (await request(`${MF}/orphans${qs({ api_version: apiVersion, kind, name, confirm: true })}`,
       { method: "DELETE", ...SLOW })).body,
 };
+
+// ---------------------------------------------------------------- 댓글 기능 (Work 4)
+export const comments = {
+  predict: async (text) =>
+    (await request("/api/v1/comments/predict", { method: "POST", json: { text }, timeout: 10000 })).body,
+  model: async () => (await request("/api/v1/comments/model", { timeout: 8000 })).body,
+};
+
+// ---------------------------------------------------------------- 피드백 (Work 5)
+export const feedback = {
+  list: async ({ filter = "all", limit = 10, offset = 0 } = {}) =>
+    (await request(`/api/v1/feedback${qs({ filter, limit, offset })}`, { timeout: 10000 })).body,
+  label: async (id, trueLabel) =>
+    (await request(`/api/v1/feedback/${enc(id)}/label`, { method: "POST", json: { true_label: trueLabel }, timeout: 10000 })).body,
+};

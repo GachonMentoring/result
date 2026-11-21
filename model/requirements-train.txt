@@ -1,0 +1,3 @@
+# 학습 = 서빙 패키지 + 데이터 처리
+-r requirements.txt
+pandas==3.1.1

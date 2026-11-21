@@ -1,0 +1,8 @@
+# 서빙 — 운영 중인 toxicity-filter 와 같은 버전으로 고정
+# (가이드 08장 시나리오 3: 버전을 안 적으면 빌드 시점마다 달라져 학습·서빙 불일치가 생김)
+fastapi==0.162.2
+uvicorn==0.54.0
+scikit-learn==1.9.1
+joblib==1.6.0
+numpy==2.4.6
+scipy==1.17.1

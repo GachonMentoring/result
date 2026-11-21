@@ -12,9 +12,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from .api.comments import router as comments_router
+from .api.feedback import router as feedback_router
 from .api.manifests import router as manifests_router
 from .api.routes import router
 from .config import load_settings, resolve_manifest_dir
+from .comments.service import CommentService, CommentSettings
+from .feedback.repo import DbSettings, FeedbackRepo
 from .k8s.client import load_kube_config
 from .k8s.registry import build_registry
 from .k8s.watcher import WatchManager
@@ -47,9 +51,26 @@ def default_manifests(manager: WatchManager) -> ManifestService:
     return ManifestService(ManifestStore(resolve_manifest_dir()), DynamicClusterAPI(), manager.namespace)
 
 
+def default_comments() -> CommentService:
+    """댓글 서비스: 모델 서버(MODEL_URL) 호출 + 임계값(THRESHOLD) 판정."""
+    return CommentService(CommentSettings.from_env())
+
+
+def default_feedback() -> FeedbackRepo | None:
+    """피드백 DB (DB_HOST/PORT/NAME/USER/PASSWORD). DB_PASSWORD 가 없으면 꺼짐 — 분류는 계속 동작."""
+    settings = DbSettings.from_env()
+    if settings is None:
+        logging.getLogger(__name__).warning("DB_PASSWORD 미설정 → 피드백 저장·조회 비활성")
+        return None
+    logging.getLogger(__name__).info("피드백 DB: %s", settings.describe())
+    return FeedbackRepo(settings)
+
+
 def create_app(
     manager_factory: Callable[[], WatchManager] = default_manager,
     manifests_factory: Callable[[WatchManager], ManifestService | None] = default_manifests,
+    comments_factory: Callable[[], CommentService | None] = default_comments,
+    feedback_factory: Callable[[], FeedbackRepo | None] = default_feedback,
 ) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -57,10 +78,14 @@ def create_app(
         manager.start()
         app.state.manager = manager
         app.state.manifests = manifests_factory(manager)
+        app.state.comments = comments_factory()
+        app.state.feedback = feedback_factory()
         try:
             yield
         finally:
             manager.stop()
+            if app.state.comments is not None:
+                await app.state.comments.aclose()
 
     app = FastAPI(title="K8s Resource API", version="0.2.0", lifespan=lifespan)
     app.add_middleware(
@@ -71,6 +96,8 @@ def create_app(
     )
     app.include_router(router)
     app.include_router(manifests_router)
+    app.include_router(comments_router)
+    app.include_router(feedback_router)
 
     @app.get("/healthz")
     def healthz():
