@@ -7,8 +7,20 @@ import * as feedback from "./pages/feedback.js";
 const routes = { "/infra": infra, "/manifests": manifests, "/comments": comments, "/feedback": feedback };
 const DEFAULT_ROUTE = "/infra";
 
-const pageEl = document.getElementById("page");
+let pageEl = document.getElementById("page");
 let current = null; // { path, unmount, update, beforeLeave }
+
+// 페이지마다 새 영역을 만들어 통째로 교체한다.
+// 같은 요소를 재사용하면 페이지가 그 요소에 붙인 이벤트 처리기가 지워지지 않고 쌓여서,
+// 다시 방문할 때마다 버튼 한 번에 처리기가 여러 번 실행된다 (예전 입력값까지 중복 전송된 버그).
+function freshPage() {
+  const el = document.createElement("main");
+  el.id = "page";
+  el.className = "page";
+  pageEl.replaceWith(el);
+  pageEl = el;
+  return el;
+}
 let lastHash = location.hash;
 let reverting = false;
 
@@ -45,8 +57,7 @@ async function navigate() {
     return;
   }
   current?.unmount?.();
-  pageEl.replaceChildren();
-  const handle = routes[path].mount(pageEl, params) ?? {};
+  const handle = routes[path].mount(freshPage(), params) ?? {};
   current = { path, ...handle };
 }
 

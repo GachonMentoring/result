@@ -60,6 +60,11 @@ py -3.11 -m venv .venv
 `model_info.json` 의 `version` = `seed-<데이터+설정 해시 12자리>` — 같은 데이터·설정이면 언제 학습해도 같은 값.
 빌드 시 `--build-arg MODEL_VERSION=v1` 로 직접 지정할 수 있다.
 
+## 이미지
+
+- **`suhannugul/mentor:model_v1`** — Docker Hub 공개 저장소 (기존 `mentor:v1` 과 같은 저장소, 태그만 다름)
+- 빌드: `docker build -t suhannugul/mentor:model_v1 .` → 확인: `/info` 의 `version_mismatch: false`, 예측값 운영 모델과 동일, 실행 uid 10001
+
 ## 배포 (이후 Work)
 
 별도 파드로 배포 — 기존 `mentor/toxicity-filter` (Service 이름·포트 8088 유지) 자리를 이 이미지로 교체.

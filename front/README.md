@@ -11,7 +11,7 @@ ES Module은 `file://`로 열면 동작하지 않으므로 정적 서버로 띄�
 # 1) API 서버 (server/)
 cd server; $env:WATCH_NAMESPACE="mentor"; .venv\Scripts\python -m uvicorn app.main:app --port 8000
 # 2) 프론트
-cd front; python -m http.server 5500
+cd front; python dev_server.py        # 5500, 브라우저 캐시 끔 (python -m http.server 는 예전 JS 가 남아 버그처럼 보일 수 있음)
 # 3) 브라우저: http://localhost:5500
 ```
 
