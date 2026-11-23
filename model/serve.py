@@ -29,10 +29,22 @@ class PredictReq(BaseModel):
 
 
 def load_info(model_path: pathlib.Path) -> dict[str, Any]:
-    """model.joblib 옆의 model_info.json (없으면 최소 정보)."""
+    """모델 파일 옆의 model_info.json (없으면 최소 정보).
+
+    MLflow 에서 받은 모델이면 initContainer 가 같은 폴더에 SOURCE(`models:/toxicity-filter/3`)를 남긴다
+    → 버전을 등록 모델 버전(`toxicity-filter/3`)으로 보고 (DB model_version 에 그대로 기록됨, train.md 6-3).
+    학습 시 지문(fb-…/seed-…)은 build 로 보존.
+    """
     p = model_path.with_name("model_info.json")
     info = json.loads(p.read_text(encoding="utf-8")) if p.exists() else {
         "name": os.getenv("MODEL_NAME", "toxicity-filter"), "version": "unknown"}
+    src = model_path.with_name("SOURCE")
+    if src.exists():
+        uri = src.read_text(encoding="utf-8").strip()
+        if uri.startswith("models:/") and len(uri) > len("models:/"):
+            info["build"] = info.get("version")
+            info["version"] = uri[len("models:/"):]
+            info["source"] = uri
     info["runtime_sklearn_version"] = sklearn.__version__
     trained = info.get("sklearn_version")
     # 가이드 08장 시나리오 3: 학습·서빙 버전이 다르면 결과를 믿을 수 없다 → 숨기지 않고 노출

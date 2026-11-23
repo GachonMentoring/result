@@ -1,0 +1,4 @@
+# 재학습 Job 이미지 (= 서빙 initContainer) — 학습 패키지 + MLflow 클라이언트
+# 클러스터 MLflow 서버와 같은 3.18.0 으로 고정 (k8sapimd/train.md 2-1: skinny 로 필요한 기능 모두 확인)
+-r requirements-train.txt
+mlflow-skinny==3.18.0

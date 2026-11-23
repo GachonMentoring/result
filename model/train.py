@@ -41,6 +41,22 @@ PARAMS = {
 }
 
 
+def build_model(params: dict = PARAMS) -> Pipeline:
+    """TF-IDF(char n-gram) + 로지스틱 회귀 — 로컬 학습·재학습 Job(train_job.py) 공통."""
+    return Pipeline([
+        ("tfidf", TfidfVectorizer(analyzer="char", ngram_range=tuple(params["tfidf_ngram"]),
+                                  min_df=params["tfidf_min_df"])),
+        ("clf", LogisticRegression(max_iter=params["max_iter"])),
+    ])
+
+
+def split_eval(df: pd.DataFrame, params: dict = PARAMS) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """가이드와 같은 분할 (stratify, random_state) → (학습용, 평가용). 고정 평가셋 eval.csv 도 이 분할로 만든다."""
+    train_df, test_df = train_test_split(df, test_size=params["test_size"],
+                                         random_state=params["random_state"], stratify=df["label"])
+    return train_df, test_df
+
+
 def train(data_path: pathlib.Path, out_dir: pathlib.Path, params: dict = PARAMS) -> dict:
     raw = data_path.read_bytes()
     df = pd.read_csv(data_path)
@@ -50,11 +66,7 @@ def train(data_path: pathlib.Path, out_dir: pathlib.Path, params: dict = PARAMS)
         df["text"], df["label"],
         test_size=params["test_size"], random_state=params["random_state"], stratify=df["label"],
     )
-    model = Pipeline([
-        ("tfidf", TfidfVectorizer(analyzer="char", ngram_range=tuple(params["tfidf_ngram"]),
-                                  min_df=params["tfidf_min_df"])),
-        ("clf", LogisticRegression(max_iter=params["max_iter"])),
-    ])
+    model = build_model(params)
     model.fit(X_train, y_train)
 
     pred = model.predict(X_test)

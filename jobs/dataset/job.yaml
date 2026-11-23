@@ -1,0 +1,51 @@
+# 데이터셋 재생성 Job 명세 (템플릿) — 원본
+#
+# 놓는 곳: NFS /home/suhan/manifests/job/dataset.yaml  (화면에서는 job/dataset.yaml)
+#   플랫폼 API 가 [데이터셋 생성] 을 누를 때마다 이 파일을 읽어 Job 을 create 한다 (k8sapimd/dataset.md 5-3).
+#   - metadata.name → generateName "<name>-" 으로 바뀌어 실행마다 새 Job (dataset-xxxxx)
+#   - namespace · 라벨 platform.mentor/job-type: dataset 은 API 가 강제로 붙임
+#   - 저장 즉시 다음 실행부터 반영 (apply 불필요). 실행 중인 Job 에는 영향 없음
+#   - 매니페스트 관리 화면에서 이 파일을 [apply] 하면 이름 "dataset" 그대로 한 번 실행된다
+#     (화면 상태가 "없음" 으로 보이는 것은 Job 이라 정상)
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: dataset
+  labels:
+    app.kubernetes.io/part-of: mlops-platform
+    platform.mentor/job-type: dataset          # 화면 목록·동시 실행 검사 (직접 apply 해도 목록에 보이도록)
+spec:
+  backoffLimit: 0                              # 실패하면 재시도하지 않음
+  activeDeadlineSeconds: 300
+  ttlSecondsAfterFinished: 600                 # 끝나고 10분 뒤 Job·파드 자동 삭제 (CSV 는 남음)
+  template:
+    metadata:
+      labels:
+        platform.mentor/job-type: dataset
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false      # 쿠버네티스 권한 불필요
+      securityContext: {runAsUser: 1000, runAsGroup: 1000, runAsNonRoot: true}   # NFS 소유자 uid 1000
+      containers:
+        - name: export
+          image: suhannugul/mentor:job-dataset_v1
+          imagePullPolicy: IfNotPresent
+          env:
+            - {name: CSV_DIR, value: /csv}
+            - name: JOB_NAME
+              valueFrom: {fieldRef: {fieldPath: "metadata.labels['job-name']"}}
+          envFrom:
+            - configMapRef: {name: mentor-platform-config}   # DB_HOST · DB_PORT · DB_NAME (API 와 같은 값)
+            - secretRef: {name: mentor-platform-db}          # DB_USER · DB_PASSWORD
+          terminationMessagePolicy: FallbackToLogsOnError    # 결과 요약 JSON → 화면이 읽음
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+          resources:
+            requests: {cpu: 100m, memory: 64Mi}
+            limits: {cpu: 500m, memory: 256Mi}
+          volumeMounts:
+            - {name: csv, mountPath: /csv}
+      volumes:
+        - name: csv
+          persistentVolumeClaim: {claimName: mentor-csv}

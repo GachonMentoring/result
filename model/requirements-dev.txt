@@ -1,3 +1,5 @@
 -r requirements-train.txt
 pytest==9.2.0
 httpx==0.28.1
+# 테스트 전용: train_job.py 를 로컬 sqlite 저장소로 돌리기 위한 full 패키지 (이미지는 mlflow-skinny, 같은 버전)
+mlflow==3.18.0
