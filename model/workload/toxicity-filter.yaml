@@ -1,0 +1,141 @@
+# 댓글 분류(toxicity) 추론 서버 — MLflow 등록 모델을 initContainer 로 받아 서빙 (k8sapimd/train.md 7-1)
+# 놓는 곳: NFS /home/suhan/manifests/workloads/toxicity-filter.yaml (기존 파일을 이 내용으로 교체 → 화면에서 적용)
+#
+# 모델 교체 = 아래 MODEL_URI 한 줄의 버전 번호 변경 → 적용 → 롤링 업데이트
+#   플랫폼 [모델 교체] 화면은 "# platform.mentor/model-uri" 표식이 붙은 줄 하나만 고친다 (표식을 지우거나 복사하지 말 것)
+#   새 파드가 모델을 못 받거나 로드에 실패하면 Ready 가 되지 않아 옛 파드가 계속 서빙 (maxUnavailable: 0)
+# 주의: Deployment selector(app: toxicity-filter)는 불변 필드이므로 절대 변경 금지
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: toxicity-filter
+  namespace: mentor
+  labels:
+    app: toxicity-filter
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2          # 오래된 ReplicaSet 최소 보관
+  selector:
+    matchLabels:
+      app: toxicity-filter
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1                  # 교체 순간에만 파드 1개 추가
+      maxUnavailable: 0            # 새 파드 Ready 전까지 구버전 유지 (무중단)
+  template:
+    metadata:
+      labels:
+        app: toxicity-filter
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false    # 불필요한 서비스 env 주입 차단
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        # ① MLflow 에서 모델을 받아 /models 에 둔다 → 끝나야 ② 서빙 컨테이너 시작
+        - name: fetch-model
+          image: suhannugul/mentor:job-train_v1      # mlflow-skinny 3.18.0 포함 (재학습 Job 과 같은 이미지)
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - mlflow artifacts download --artifact-uri "$MODEL_URI" --dst-path /models && echo "$MODEL_URI" > /models/SOURCE
+          env:
+            - name: MODEL_URI
+              value: "models:/toxicity-filter/1"     # platform.mentor/model-uri
+            - {name: MLFLOW_TRACKING_URI, value: http://mlflow.mentor.svc.cluster.local:5000}
+            - {name: HOME, value: /tmp}
+            - {name: GIT_PYTHON_REFRESH, value: quiet}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: model
+              mountPath: /models
+            - name: tmp
+              mountPath: /tmp
+      containers:
+        # ② 추론 서버 — /models/model.pkl 로드 (SOURCE 를 읽어 버전을 toxicity-filter/<N> 으로 보고)
+        - name: app                # 기존 컨테이너 이름 유지
+          image: suhannugul/mentor:model_v2
+          imagePullPolicy: IfNotPresent
+          env:
+            - {name: MODEL_PATH, value: /models/model.pkl}
+          ports:
+            - name: http
+              containerPort: 8088
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 300m            # 상한만 걸어 노드 자원 점유 방지 (시작 시 import 지연은 startupProbe로 흡수)
+              memory: 256Mi
+          # 모델 로드가 끝나야 /healthz가 응답 -> 로드 완료 전 liveness로 죽지 않도록 startupProbe 사용
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 2
+            failureThreshold: 30   # 최대 60초 대기
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp      # readOnlyRootFilesystem 대비 (joblib/python 임시파일)
+            - name: model
+              mountPath: /models
+              readOnly: true
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi        # initContainer(mlflow) 임시파일 포함 16Mi → 64Mi
+        - name: model
+          emptyDir:
+            sizeLimit: 64Mi        # 모델 수 MB
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: toxicity-filter
+  namespace: mentor
+  labels:
+    app: toxicity-filter
+spec:
+  type: ClusterIP                  # 기존 NodePort(30089) -> 클러스터 내부 전용
+  selector:
+    app: toxicity-filter
+  ports:
+    - name: http
+      port: 8088
+      targetPort: http

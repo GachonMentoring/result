@@ -52,6 +52,22 @@ def resolve_manifest_dir() -> Path:
     return DEV_MANIFEST_DIR
 
 
+# 데이터셋 폴더 (k8sapimd/dataset.md) — 파드 안: NFS /home/suhan/csv 를 읽기 전용 마운트
+DEV_CSV_DIR = Path(__file__).resolve().parents[1] / "dev-csv"
+IN_CLUSTER_CSV_DIR = Path("/csv")
+
+
+def resolve_csv_dir() -> Path:
+    """CSV_DIR → (파드 안이면) /csv → (로컬이면) 개발용 server/dev-csv. 매니페스트 폴더와 같은 규칙."""
+    raw = os.getenv("CSV_DIR", "").strip()
+    if raw:
+        return Path(raw)
+    if in_cluster():
+        return IN_CLUSTER_CSV_DIR
+    DEV_CSV_DIR.mkdir(exist_ok=True)
+    return DEV_CSV_DIR
+
+
 def load_settings() -> Settings:
     return Settings(
         namespace=resolve_namespace(),

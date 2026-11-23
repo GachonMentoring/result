@@ -121,15 +121,10 @@ data:
   DB_NAME: "toxicity"
 ```
 
-### Secret (`mentor-platform-db`) — **파일로 만들지 말고 명령으로**
-```bash
-kubectl -n mentor create secret generic mentor-platform-db \
-  --from-literal=DB_USER='mentor_app' \
-  --from-literal=DB_PASSWORD='<비밀번호>'
-```
-- YAML 파일로 만들면 비밀번호가 파일에 남아 git·NFS 에 올라갈 위험 (`.gitignore` 의 `*secret*.yaml` 은 안전망일 뿐)
-- **NFS 매니페스트 폴더(`/home/suhan/manifests`)에 Secret YAML 을 두지 말 것** — Work 3 화면에 내용이 그대로 보임
-- `--from-literal` 로 만들면 값 끝에 줄바꿈이 들어가지 않음 (`echo | base64` 로 만들 때의 흔한 실수 방지)
+### Secret (`mentor-platform-db`) — **`secret/` 폴더에 YAML, 값은 공란으로 생성**
+- 이 환경은 모든 서비스의 Secret 을 `secret/` 폴더 아래 YAML 로 정리한다 → 같은 규칙을 따른다 (2026-11-22 변경)
+- 템플릿·규칙: 레포 `infra_guide.md` 4-4 (`stringData` 사용, 값 `""`, 사람이 채운 뒤 적용, git 에 올리지 않음)
+- 키 이름 = 앱 환경변수 이름 (`DB_USER`, `DB_PASSWORD`)
 
 ### Deployment (플랫폼 API) 중 설정 관련 부분
 ```yaml

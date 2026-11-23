@@ -441,3 +441,20 @@ button.card { font: inherit; text-align: left; cursor: pointer; }
   .search input { width: 100%; }
   .search { flex: 1 1 100%; }
 }
+
+/* ---------------------------------------------------------------- 모델 재학습 · 데이터셋 재생성 */
+.rt-tabs { padding: 0; margin-bottom: 16px; }
+.rt-tabs .tab { text-decoration: none; }
+.rt-panel { margin-bottom: 20px; }
+.rt-action { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 16px; flex-wrap: wrap; border-bottom: 1px solid var(--border); }
+.rt-action h2 { font-size: 15px; margin-bottom: 4px; }
+.rt-action p { margin: 0; }
+.rt-warn { color: var(--warn); font-weight: 600; }
+.rt-jobs tbody tr { cursor: default; }
+.rt-preview { margin-top: 20px; }
+.rt-sub { font-size: 13px; margin: 4px 0 0; }
+
+/* ---------------------------------------------------------------- 모델 재학습 · 모델 교체 */
+.rt-train-form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.rt-train-form select { padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); max-width: 100%; }
+.rt-deploy-actions { border-top: 1px solid var(--border); border-bottom: 0; }

@@ -48,24 +48,38 @@ py -3.11 -m venv .venv
 
 | 파일 | 설명 |
 |---|---|
-| `train.py` | 가이드 02장과 같은 설정. `artifacts/` 에 `model.joblib`, `metrics.json`, `model_info.json` |
-| `serve.py` | FastAPI 추론 서버. `MODEL_PATH` 환경변수 (기본 `artifacts/model.joblib`) |
-| `requirements*.txt` | 운영 이미지와 같은 버전으로 고정 (서빙 / 학습 / 개발) |
-| `Dockerfile` | 1단계 학습 → 2단계 서빙. 학습·서빙 버전이 항상 같음. root 아닌 사용자로 실행 |
+| `train.py` | 가이드 02장과 같은 설정 (`build_model`, `split_eval`). 로컬 학습 시 `artifacts/` 에 `model.joblib`, `metrics.json`, `model_info.json` |
+| `train_job.py` | **재학습 Job** — 데이터셋 정리 → 학습 → `eval.csv` 채점 → MLflow 기록·등록 (k8sapimd/train.md 4·6장) |
+| `make_eval.py` | 고정 평가셋 `data/eval.csv`(seed 의 가이드 평가 분할 92행) 생성 — 1회 |
+| `serve.py` | FastAPI 추론 서버. `MODEL_PATH`. 같은 폴더의 `SOURCE`(initContainer 가 씀) 가 있으면 버전 = `toxicity-filter/<N>` |
+| `job/train.yaml` | 학습 Job 템플릿 원본 → NFS `manifests/job/train.yaml` |
+| `workload/toxicity-filter.yaml` | initContainer 방식 서빙 워크로드 원본 → NFS `manifests/workloads/toxicity-filter.yaml` |
+| `requirements*.txt` | 고정 버전 — 서빙 / 학습(+pandas) / Job(+mlflow-skinny 3.18.0) / 개발(+pytest, mlflow) |
+| `Dockerfile` | target `job-train`(재학습 Job · initContainer) / 기본(서빙). 같은 requirements → 학습·서빙 버전 일치 |
 
-`artifacts/` 는 빌드 산출물이라 git 에서 제외 (이미지 빌드 시 다시 학습).
+`artifacts/` 는 로컬 학습 산출물이라 git 에서 제외.
+
+## 재학습 Job 로컬 실행
+
+```powershell
+$env:DATASET="seed"; $env:CSV_DIR="..\server\dev-csv"; $env:MLFLOW_TRACKING_URI="http://localhost:5000"; $env:PYTHONUTF8="1"
+.venv\Scripts\python train_job.py      # dev-csv 에 eval.csv 가 있어야 함 (python make_eval.py --out ..\server\dev-csv\eval.csv)
+```
 
 ## 버전
 
-`model_info.json` 의 `version` = `seed-<데이터+설정 해시 12자리>` — 같은 데이터·설정이면 언제 학습해도 같은 값.
-빌드 시 `--build-arg MODEL_VERSION=v1` 로 직접 지정할 수 있다.
+- 로컬 학습: `model_info.json` 의 `version` = `seed-<데이터+설정 해시 12자리>`
+- 재학습 Job: MLflow 등록 모델 `toxicity-filter` 의 버전 번호 (1, 2, 3 …). 서빙 시 `/info`·DB `model_version` = `toxicity-filter/<N>`, 학습 지문(`seed-…`/`fb-…`)은 `build`
 
 ## 이미지
 
-- **`suhannugul/mentor:model_v1`** — Docker Hub 공개 저장소 (기존 `mentor:v1` 과 같은 저장소, 태그만 다름)
-- 빌드: `docker build -t suhannugul/mentor:model_v1 .` → 확인: `/info` 의 `version_mismatch: false`, 예측값 운영 모델과 동일, 실행 uid 10001
+| 태그 | 빌드 | 내용 |
+|---|---|---|
+| `suhannugul/mentor:model_v1` | (이전) | 모델을 이미지 안에 넣은 서빙 |
+| `suhannugul/mentor:model_v2` | `docker build -t suhannugul/mentor:model_v2 .` | 모델 없는 서빙 — `/models/model.pkl` 로드 |
+| `suhannugul/mentor:job-train_v1` | `docker build --target job-train -t suhannugul/mentor:job-train_v1 .` | 재학습 Job + 서빙 initContainer (mlflow-skinny) |
 
-## 배포 (이후 Work)
+## 배포
 
-별도 파드로 배포 — 기존 `mentor/toxicity-filter` (Service 이름·포트 8088 유지) 자리를 이 이미지로 교체.
-이 파드는 쿠버네티스 권한이 필요 없으므로 `automountServiceAccountToken: false`.
+`workload/toxicity-filter.yaml` — initContainer `fetch-model` 이 MLflow 에서 `MODEL_URI`(models:/toxicity-filter/N) 를 받아 emptyDir `/models` 에 두고
+서빙 컨테이너가 로드. 교체 = 그 한 줄의 버전 변경 → 적용 (플랫폼 [모델 교체] 화면). 반영 절차는 레포 최상위 `train_인수인계.md`.

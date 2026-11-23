@@ -100,3 +100,25 @@ export const feedback = {
   label: async (id, trueLabel) =>
     (await request(`/api/v1/feedback/${enc(id)}/label`, { method: "POST", json: { true_label: trueLabel }, timeout: 10000 })).body,
 };
+
+// ---------------------------------------------------------------- 모델 재학습 · 데이터셋 재생성 (k8sapimd/dataset.md)
+export const datasets = {
+  list: async () => (await request("/api/v1/datasets")).body,
+  create: async () => (await request("/api/v1/datasets", { method: "POST", timeout: 10000 })).body,
+  jobs: async () => (await request("/api/v1/datasets/jobs")).body,
+  get: async (name) => (await request(`/api/v1/datasets/${enc(name)}`)).body,
+};
+
+// ---------------------------------------------------------------- 모델 재학습 · 모델 교체 (k8sapimd/train.md)
+export const models = {
+  list: async () => (await request("/api/v1/models")).body,
+  train: async (dataset) =>
+    (await request("/api/v1/models/train", { method: "POST", json: { dataset }, timeout: 10000 })).body,
+  trainJobs: async () => (await request("/api/v1/models/train/jobs")).body,
+  deployState: async () => (await request("/api/v1/models/deploy")).body,
+  // 확인창에서 [교체]·[되돌리기] 를 누른 경우에만 호출 → confirm=true
+  deploy: async (version) =>
+    (await request("/api/v1/models/deploy", { method: "POST", json: { version, confirm: true }, timeout: 20000 })).body,
+  rollback: async () =>
+    (await request("/api/v1/models/deploy/rollback", { method: "POST", json: { confirm: true }, timeout: 20000 })).body,
+};

@@ -1,0 +1,2 @@
+# 데이터셋 Job — 플랫폼 API(server/requirements.txt)와 같은 고정 버전
+PyMySQL==1.2.4
