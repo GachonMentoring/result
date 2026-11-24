@@ -1,5 +1,5 @@
 # 댓글 분류 모델 — 이미지 두 개를 같은 파일·같은 고정 버전(requirements.txt)으로 빌드한다
-#   서빙 (기본 target):  docker build -t suhannugul/mentor:model_v2 .
+#   서빙 (기본 target):  docker build -t suhannugul/mentor:model_v3 .   (v3: /metrics 추가)
 #   재학습 Job:          docker build --target job-train -t suhannugul/mentor:job-train_v1 .
 #
 # 두 이미지가 같은 requirements.txt (scikit-learn·numpy·scipy 고정)와 같은 Python 3.11 을 쓰므로

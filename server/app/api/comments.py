@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from ..comments.service import CommentError, CommentService
 from ..feedback.repo import FeedbackError
+from ..metrics import CLASSIFY, FEEDBACK_SAVE
 
 router = APIRouter(prefix="/api/v1/comments", tags=["comments"])
 log = logging.getLogger(__name__)
@@ -31,13 +32,16 @@ async def predict(request: Request, body: PredictBody):
     except CommentError as e:
         raise HTTPException(e.status, e.message) from e
 
+    model = result.get("model") or {}
+    CLASSIFY.labels(model.get("version") or "unknown", str(result["label"])).inc()
+
     # 분류할 때마다 재학습 데이터로 저장. DB 장애가 있어도 분류 결과는 돌려준다 (saved=false 로 알림)
     result.update(id=None, saved=False, save_error=None)
     repo = getattr(request.app.state, "feedback", None)
     if repo is None:
+        FEEDBACK_SAVE.labels("disabled").inc()
         result["save_error"] = "피드백 DB 가 설정되지 않아 저장하지 않았습니다."
         return result
-    model = result.get("model") or {}
     try:
         saved = await run_in_threadpool(
             lambda: repo.insert(
@@ -47,7 +51,9 @@ async def predict(request: Request, body: PredictBody):
             )
         )
         result.update(id=saved["id"], saved=True, created_at=saved["created_at"])
+        FEEDBACK_SAVE.labels("ok").inc()
     except FeedbackError as e:
+        FEEDBACK_SAVE.labels("error").inc()
         log.warning("피드백 저장 실패: %s", e.message)
         result["save_error"] = e.message
     return result

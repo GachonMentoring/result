@@ -122,3 +122,9 @@ export const models = {
   rollback: async () =>
     (await request("/api/v1/models/deploy/rollback", { method: "POST", json: { confirm: true }, timeout: 20000 })).body,
 };
+
+// ---------------------------------------------------------------- 모니터링 (k8sapimd/monitoring.md 7장)
+export const monitoring = {
+  // { dashboards: [{key, title, url|null, error|null}], configured }
+  config: async () => (await request("/api/v1/monitoring")).body,
+};

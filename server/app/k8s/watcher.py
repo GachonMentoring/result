@@ -65,6 +65,7 @@ class ResourceWatcher(threading.Thread):
         self.last_event_at: str | None = None
         self.last_error: str | None = None
         self.relist_count = 0
+        self.error_count = 0              # Watch 오류·재연결 횟수 (/metrics)
         self._current_watch: Any = None
 
     # ---------------------------------------------------------------- 루프
@@ -174,6 +175,7 @@ class ResourceWatcher(threading.Thread):
         if self.stop_event.is_set():
             return backoff  # 종료 중 끊긴 연결은 오류가 아님
         self.last_error = message
+        self.error_count += 1
         log.warning("[%s] watch 오류: %s (%.0f초 후 재시도)", self.spec.key, message, backoff)
         self.stop_event.wait(backoff)
         return min(backoff * 2, MAX_BACKOFF_SECONDS)
@@ -188,6 +190,7 @@ class ResourceWatcher(threading.Thread):
             "last_sync_at": self.last_sync_at,
             "last_event_at": self.last_event_at,
             "relist_count": self.relist_count,
+            "error_count": self.error_count,
             "last_error": self.last_error,
         }
 

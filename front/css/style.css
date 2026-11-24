@@ -458,3 +458,11 @@ button.card { font: inherit; text-align: left; cursor: pointer; }
 .rt-train-form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .rt-train-form select { padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); max-width: 100%; }
 .rt-deploy-actions { border-top: 1px solid var(--border); border-bottom: 0; }
+
+/* ---------------------------------------------------------------- 모니터링 (Grafana 임베드) */
+.mon-help { margin: 0 0 10px; color: var(--text-2); }
+a.btn { text-decoration: none; }
+.mon-frame-card { overflow: hidden; }
+.mon-frame { display: block; width: 100%; height: calc(100vh - 230px); min-height: 560px; border: 0; background: var(--surface); }
+.mon-empty strong { display: block; font-size: 15px; color: var(--text); margin-bottom: 6px; }
+.mon-empty p { margin: 4px 0; }

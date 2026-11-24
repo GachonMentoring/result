@@ -8,15 +8,18 @@ import os
 from collections.abc import Callable
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
+from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, generate_latest
 
+from . import metrics
 from .api.comments import router as comments_router
 from .api.datasets import router as datasets_router
 from .api.feedback import router as feedback_router
 from .api.manifests import router as manifests_router
 from .api.models import router as models_router
+from .api.monitoring import router as monitoring_router
 from .api.routes import router
 from .config import load_settings, resolve_csv_dir, resolve_manifest_dir
 from .comments.service import CommentService, CommentSettings
@@ -137,6 +140,30 @@ def create_app(
     app.include_router(feedback_router)
     app.include_router(datasets_router)
     app.include_router(models_router)
+    app.include_router(monitoring_router)
+
+    # ------------------------------------------------------------ 모니터링 (k8sapimd/monitoring.md 2장)
+    state_registry = CollectorRegistry()   # 앱마다: Watch 캐시·설정을 /metrics 호출 때 읽음
+    state_registry.register(metrics.StateCollector(lambda: app.state))
+
+    @app.middleware("http")
+    async def count_actions(request: Request, call_next):
+        """상태를 바꾸는 API(삭제·재시작·적용·교체 …)를 행위·결과별로 센다."""
+        try:
+            response = await call_next(request)
+        except Exception:
+            route = request.scope.get("route")
+            metrics.record_action(request.method, getattr(route, "path", None), 500)
+            raise
+        route = request.scope.get("route")
+        metrics.record_action(request.method, getattr(route, "path", None), response.status_code)
+        return response
+
+    @app.get("/metrics", include_in_schema=False)
+    def prometheus_metrics():
+        # Ingress 에 노출하지 않는다 (경로 /api /docs /openapi.json /healthz /readyz 만) — Prometheus 가 파드 IP 로 수집
+        body = generate_latest(metrics.REGISTRY) + generate_latest(state_registry)
+        return Response(body, media_type=CONTENT_TYPE_LATEST)
 
     @app.get("/healthz")
     def healthz():

@@ -18,6 +18,8 @@ from typing import Any
 
 import httpx
 
+from ..metrics import MODEL_CALL_FAILURES
+
 MAX_TEXT = 300                 # 가이드와 같은 상한 (학습 데이터가 짧은 한 줄 댓글)
 UNCERTAIN_RANGE = (0.4, 0.6)   # 모델이 헷갈리는 구간 — 피드백 후보 (가이드 04장)
 LABEL_NAMES = {0: "정상", 1: "주의"}
@@ -79,8 +81,10 @@ class CommentService:
         try:
             return await self._http.request(method, path, **kw)
         except httpx.TimeoutException as e:
+            MODEL_CALL_FAILURES.labels("timeout").inc()
             raise CommentError(503, f"모델 서버 응답 시간 초과 ({self.settings.timeout:g}초, {self.settings.model_url})") from e
         except httpx.HTTPError as e:
+            MODEL_CALL_FAILURES.labels("connect").inc()
             raise CommentError(503, f"모델 서버에 연결할 수 없습니다 ({self.settings.model_url})") from e
 
     async def predict(self, text: str) -> dict[str, Any]:
@@ -89,6 +93,8 @@ class CommentService:
         r = await self._call("POST", "/predict", json={"text": text})
         latency_ms = round((time.perf_counter() - started) * 1000, 1)
 
+        if r.status_code != 200:
+            MODEL_CALL_FAILURES.labels("http_4xx" if r.status_code < 500 else "http_5xx").inc()
         if r.status_code == 400:
             raise CommentError(400, f"모델이 입력을 거부했습니다: {_detail(r)}")
         if r.status_code != 200:
@@ -97,6 +103,7 @@ class CommentService:
             body = r.json()
             proba = float(body["toxic_proba"])
         except (ValueError, KeyError, TypeError) as e:
+            MODEL_CALL_FAILURES.labels("invalid").inc()
             raise CommentError(502, "모델 서버 응답 형식이 올바르지 않습니다. (toxic_proba 없음)") from e
 
         return {

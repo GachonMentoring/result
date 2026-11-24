@@ -51,6 +51,12 @@ cd front; python dev_server.py        # 5500, 브라우저 캐시 끔 (python -m
 - 피드백 메뉴: 요약 카드 = 필터 (전체 / 정답 미확인 / 정답 있음 / 모델이 틀림), 표 + 최신순 10개씩 ◀ ▶, 미확인 행에서 [정상] [주의]로 정답 입력, 5초마다 갱신
 - DB 가 설정되지 않았거나 끊기면 배너로 이유 표시 (분류 자체는 계속 동작)
 
+## 모니터링 화면
+
+- 사이드 메뉴 [모니터링]: 탭 [모델] · [플랫폼] = Grafana **공개 대시보드** iframe (`#/monitoring/model`, `#/monitoring/platform`) + [Grafana에서 열기 ↗]
+- URL 은 API `GET /api/v1/monitoring` (ConfigMap `GRAFANA_MODEL_URL` · `GRAFANA_PLATFORM_URL`) → 비어 있으면 "대시보드 준비 중"
+- 대시보드 JSON: 레포 `monitoring/dashboards/` (`build.py` 로 생성), 적용 절차 `monitoring_인수인계.md`
+
 ## 매니페스트 관리 화면 (Work 3)
 
 - 두 번째 메뉴: 파일 트리(폴더 접기, 판정 점 색상) + **선언 없음** 목록(삭제 가능), [+ 새 파일]
