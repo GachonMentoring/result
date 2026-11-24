@@ -15,6 +15,8 @@ from typing import Any
 
 import httpx
 
+from ..metrics import MLFLOW_FAILURES
+
 
 class ModelError(Exception):
     def __init__(self, status: int, message: str) -> None:
@@ -36,6 +38,7 @@ class MlflowREST:
         try:
             r = self._http.request(method, f"/api/2.0/mlflow/{path}", params=params, json=json)
         except httpx.HTTPError as e:
+            MLFLOW_FAILURES.labels(path).inc()
             raise ModelError(503, f"MLflow 에 연결할 수 없습니다 ({self.base_url}): {type(e).__name__}") from e
         try:
             body = r.json()
@@ -49,6 +52,7 @@ class MlflowREST:
                          or (code == "INVALID_PARAMETER_VALUE" and "not found" in msg.lower()))
             if missing_ok and not_found:
                 return None
+            MLFLOW_FAILURES.labels(path).inc()
             raise ModelError(502, f"MLflow 오류 (HTTP {r.status_code}): {msg}")
         return body if isinstance(body, dict) else {}
 

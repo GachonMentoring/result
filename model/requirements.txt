@@ -6,3 +6,4 @@ scikit-learn==1.9.1
 joblib==1.6.0
 numpy==2.4.6
 scipy==1.17.1
+prometheus-client==0.26.0   # /metrics (k8sapimd/monitoring.md 1장) — model_v3 부터

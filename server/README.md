@@ -35,6 +35,7 @@ Swagger: http://localhost:8000/docs
 | `DB_PASSWORD` | (없음) | **필수** — 없으면 피드백 저장·조회 꺼짐 (분류는 동작) |
 | `MANIFEST_DIR` | `server/dev-manifests` | 매니페스트 폴더 (운영: NFS 마운트 경로) |
 | `LOG_LEVEL` | INFO | `DEBUG`로 두면 이벤트 하나하나 로그 |
+| `GRAFANA_MODEL_URL` / `GRAFANA_PLATFORM_URL` | (없음) | [모니터링] 화면의 Grafana 공개 대시보드 URL. 없으면 "대시보드 준비 중" (k8sapimd/monitoring.md 7장) |
 
 ## API
 
@@ -42,6 +43,8 @@ Swagger: http://localhost:8000/docs
 |---|---|---|
 | GET | `/healthz` | 프로세스 생존 |
 | GET | `/readyz` | 모든 watcher 첫 sync 완료 시 200, 이전엔 503 |
+| GET | `/metrics` | Prometheus 수집용 (Ingress 미노출, OpenAPI 에도 없음). 메트릭 목록은 k8sapimd/monitoring.md 2장 |
+| GET | `/api/v1/monitoring` | [모니터링] 화면용 대시보드 URL `{dashboards:[{key,title,url,error}], configured}` |
 | GET | `/api/v1/kinds` | watcher 상태 (rv, 마지막 이벤트 시각, re-list 횟수, 에러) |
 | GET | `/api/v1/resources` | kind별 개수 |
 | GET | `/api/v1/resources/{kind}?label_selector=app=mlflow` | 목록 (요약) |

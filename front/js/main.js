@@ -1,11 +1,13 @@
-// 해시 라우터: #/infra, #/infra/pods, #/manifests/app/web.yaml, #/comments, #/feedback, #/retrain/dataset
+// 해시 라우터: #/infra, #/infra/pods, #/manifests/app/web.yaml, #/comments, #/feedback, #/retrain/dataset, #/monitoring/model
 import * as infra from "./pages/infra.js";
 import * as manifests from "./pages/manifests.js";
 import * as comments from "./pages/comments.js";
 import * as feedback from "./pages/feedback.js";
 import * as retrain from "./pages/retrain.js";
+import * as monitoring from "./pages/monitoring.js";
 
-const routes = { "/infra": infra, "/manifests": manifests, "/comments": comments, "/feedback": feedback, "/retrain": retrain };
+const routes = { "/infra": infra, "/manifests": manifests, "/comments": comments, "/feedback": feedback, "/retrain": retrain,
+  "/monitoring": monitoring };
 const DEFAULT_ROUTE = "/infra";
 
 let pageEl = document.getElementById("page");

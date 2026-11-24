@@ -40,6 +40,7 @@ class WatcherStatus(BaseModel):
     last_sync_at: str | None = None
     last_event_at: str | None = None
     relist_count: int
+    error_count: int = 0
     last_error: str | None = None
 
 

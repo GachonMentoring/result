@@ -41,6 +41,7 @@ py -3.11 -m venv .venv
 | GET | `/healthz` | 생존 확인 (probe 용) |
 | GET | `/info` | 모델 이름·버전·학습 지표·학습/서빙 scikit-learn 버전 (`version_mismatch`) |
 | POST | `/predict` | `{"text": "..."}` (1~300자) → `{"toxic_proba": 0.84, "model": {"name", "version"}}` |
+| GET | `/metrics` | Prometheus 수집용 (model_v3~): 서빙 버전 · 요청 수 · 추론 시간 · 확률 분포 · 입력 길이 (k8sapimd/monitoring.md 1장) |
 
 판정(label)은 주지 않는다 — 임계값은 앱 서버의 `THRESHOLD` 환경변수로 정한다.
 
